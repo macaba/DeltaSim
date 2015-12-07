@@ -308,52 +308,30 @@ class DeltaConfig {
     ellipse(0, 0, (float)this.deltaRadius*2, (float)this.deltaRadius*2);
     
     //noStroke();
-    colorMode(RGB);
+    colorMode(HSB, 360, 100, 100);
+    
+    float[] heightErrorsFloat = new float[5000];
+    int i = 0;
+    for (Location l : heightErrors) {
+      heightErrorsFloat[i++] = (float)l.z;
+    }
+    float maxDeviation = max(abs(min(heightErrorsFloat)), abs(max(heightErrorsFloat))); 
+    float maxDeviationCoerced = max(maxDeviation, 0.1);
+    float hueFactor = 120/maxDeviationCoerced;
+       
     for (Location l : heightErrors) {
       //println("l.z:"+l.z);
       if (Double.isNaN(l.z)) {
-        fill(0,255,0);
-      } else if (l.z > 0) {
-        if (l.z > 0.02) {
-          if (l.z > 0.04) {
-            if (l.z > 0.08) {
-              if (l.z > .16) {
-                fill(255, 0, 0);
-              } else {
-                fill(255, 64, 64);
-              }
-            } else {
-              fill(255, 128, 128);
-            }
-          } else {
-            fill(255, 192, 192);
-          }
-        } else {
-          fill(255, 255, 255);
-        }
+        fill(0,100,100);
       } else {
-        if (l.z < -0.02) {
-          if (l.z < -0.04) {
-            if (l.z < -0.08) {
-              if (l.z < -.16) {
-                fill(0, 0, 255);
-              } else {
-                fill(64, 64, 255);
-              }
-            } else {
-              fill(128, 128, 255);
-            }
-          } else {
-            fill(192, 192, 255);
-          }
-        } else {
-          fill(255, 255, 255);
-        }
+        fill((int)((l.z * hueFactor)+120), 100, 50);
       }
     
       ellipse((float)l.x, (float)l.y, 5, 5);
     }
     stroke(0);
+    
+    colorMode(RGB);
     
     // draw tower A
     pushMatrix();
@@ -480,6 +458,7 @@ class DeltaConfig {
     text(String.format("Rod Length: %.5f", this.rodLength), 25, 450);
     text(String.format("Effector: [%.5f, %.5f, %.5f]", this.effectorLocation.x, this.effectorLocation.y, this.effectorLocation.z), 25, 500);
     text(String.format("Bed Normal: [%.5f, %.5f, %.5f, %.5f]", this.bedNormal.a, this.bedNormal.b, this.bedNormal.c, this.bedNormal.d), 25, 550);
+    text(String.format("Max Deviation: %.3f (Red: %.3f, Blue: %.3f)", maxDeviation, -maxDeviationCoerced, maxDeviationCoerced), 25, 590);
   }
 
   void CalculateFromAngles() {
