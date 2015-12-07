@@ -327,7 +327,10 @@ class DeltaConfig {
         fill((int)((l.z * hueFactor)+120), 100, 50);
       }
     
+      pushMatrix(); 
+      translate(0,0,(float)l.z*50);
       ellipse((float)l.x, (float)l.y, 5, 5);
+      popMatrix();      
     }
     stroke(0);
     
