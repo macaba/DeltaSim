@@ -540,6 +540,42 @@ class DeltaConfig {
     popMatrix();
 
     drawTable();
+
+    text(String.format("Tower A: [%.5f, %.5f]", this.aTowerLocation.x, this.aTowerLocation.y), 25, 100);
+    text(String.format("Tower A Angle: %.5f", degrees((float)this.aTowerAngle)), 25, 150);
+    text(String.format("Tower B: [%.5f, %.5f]", this.bTowerLocation.x, this.bTowerLocation.y), 25, 200);
+    text(String.format("Tower B Angle: %.5f", degrees((float)this.bTowerAngle)), 25, 250);
+    text(String.format("Tower C: [%.5f, %.5f]", this.cTowerLocation.x, this.cTowerLocation.y), 25, 300);
+    text(String.format("Tower C Angle: %.5f", degrees((float)this.cTowerAngle)), 25, 350);
+    text(String.format("Delta Radius: %.5f", this.deltaRadius), 25, 400);
+    text(String.format("Rod Length: %.5f", this.rodLength), 25, 450);
+    text(String.format("Effector: [%.5f, %.5f, %.5f]", this.effectorLocation.x, this.effectorLocation.y, this.effectorLocation.z), 25, 500);
+    text(String.format("Bed Normal: [%.5f, %.5f, %.5f, %.5f]", this.bedNormal.a, this.bedNormal.b, this.bedNormal.c, this.bedNormal.d), 25, 550);
+  }
+
+  void drawDelta(ArrayList<Location> heightErrors) {
+    pushMatrix();
+    
+    translate(width/2, 2*height/3, -50);
+    rotateX(xAngle);
+    rotateZ(zAngle);
+    
+    drawBed();
+    drawHSVProbePoints(heightErrors);
+    drawTower(this.aTowerLocation, this.aTowerHeight, this.aTowerAngle, (selectedTower == 0));
+    drawTower(this.bTowerLocation, this.bTowerHeight, this.bTowerAngle, (selectedTower == 1));
+    drawTower(this.cTowerLocation, this.cTowerHeight, this.cTowerAngle, (selectedTower == 2));
+    drawMotor(this.aTowerLocation, this.motorsLocation.x, this.aTowerAngle);
+    drawMotor(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
+    drawMotor(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
+    drawEffector();
+    drawTowerRods(this.aTowerLocation, this.motorsLocation.x, this.aTowerAngle);
+    drawTowerRods(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
+    drawTowerRods(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
+
+    popMatrix();
+
+    drawTable();
   }
 
   void CalculateFromAngles() {
@@ -627,6 +663,10 @@ class DeltaConfig {
     return motorHeights;
   }
   
+  double sq(double value) {
+    return value * value;
+  }
+  
   // Xe = effector X location
   // Ye = effector Y location
   // Ze = effector Z location
@@ -654,10 +694,6 @@ class DeltaConfig {
   // (9): (A1^2+A2^2+1)*Ze^2 + (2*A1*(B1-Yb)+2*A2*(B2-Xb)-2*Zb)*Ze + ((B2-Xb)^2+(B1-Yb)^2)+Zb^2-RL^2) = 0
   // (10): A3*Ze^2 + B3*Ze + C3 = 0
   // (11): Ze = (-B3 +- sqrt(B3^2 - 4*A3*C3)) / (2*A3)
-  double sq(double value) {
-    return value * value;
-  }
-  
   Location CalculateEffectorLocation(Location motorHeights, Location effector) {
     if (effector == null) {
       effector = new Location();
@@ -695,57 +731,6 @@ class DeltaConfig {
       effector.y = y1;
       effector.z = z1;
     }
-    return effector;
-  }
-
-  
-  
-  
-  // X = J1*Y + K1*Z + L1
-  // X = J2*Y + K2*Z + L2
-  // X = J3*Y + K3*Z + L3
-  // Y * (J1 - J2) = Z * (K2 - K1) + (L2 - L1)
-  // Y = Z * (K2 - K1) / (J1 - J2) + (L2 - L1) / (J1 - J2)
-  // Y = Z * (K3 - K1) / (J1 - J3) + (L3 - L1) / (J1 - J3)
-  // Z * ((K2-K1)/(J1-J2) - (K3-K1)/(J1-J3)) + (L2-L1)/(J1-J2) - (L3-L1)/(J1-J3) = 0
-  // Z = (L3-L1)/(J1-J3) - (L2-L1)/(J1-J2) / ....
-  Location CalculateEffectorLocation2(Location motorHeights, Location effector) {
-    if (effector == null) {
-      effector = new Location();
-    }
-    
-    Vector plane1 = new Vector((2.0*this.bTowerLocation.x - 2.0*this.aTowerLocation.x),
-                               (2.0*this.bTowerLocation.y - 2.0*this.aTowerLocation.y),
-                               (2.0*motorHeights.y - 2.0*motorHeights.x),
-                               ((this.aTowerLocation.x*this.aTowerLocation.x - this.bTowerLocation.x*this.bTowerLocation.x) +
-                                (this.aTowerLocation.y*this.aTowerLocation.y - this.bTowerLocation.y*this.bTowerLocation.y) +
-                                (motorHeights.x*motorHeights.x - motorHeights.y*motorHeights.y)));
-    Vector plane2 = new Vector((2.0*this.cTowerLocation.x - 2.0*this.bTowerLocation.x),
-                               (2.0*this.cTowerLocation.y - 2.0*this.bTowerLocation.y),
-                               (2.0*motorHeights.z - 2.0*motorHeights.y),
-                               ((this.bTowerLocation.x*this.bTowerLocation.x - this.cTowerLocation.x*this.cTowerLocation.x) +
-                                (this.bTowerLocation.y*this.bTowerLocation.y - this.cTowerLocation.y*this.cTowerLocation.y) +
-                                (motorHeights.y*motorHeights.y - motorHeights.z*motorHeights.z)));
-    Vector plane3 = new Vector((2.0*this.aTowerLocation.x - 2.0*this.cTowerLocation.x),
-                               (2.0*this.aTowerLocation.y - 2.0*this.cTowerLocation.y),
-                               (2.0*motorHeights.x - 2.0*motorHeights.z),
-                               ((this.cTowerLocation.x*this.cTowerLocation.x - this.aTowerLocation.x*this.aTowerLocation.x) +
-                                (this.cTowerLocation.y*this.cTowerLocation.y - this.aTowerLocation.y*this.aTowerLocation.y) +
-                                (motorHeights.z*motorHeights.z - motorHeights.x*motorHeights.x)));
-    double determinant = (plane1.a * (plane2.b*plane3.c - plane2.c*plane3.b) -
-                          plane1.b * (plane2.a*plane3.c - plane2.c*plane3.a) + 
-                          plane1.c * (plane2.a*plane3.b - plane2.b*plane3.a));
-
-    effector.x = ((plane1.d * (plane2.b*plane3.c - plane2.c*plane3.b) -
-                   plane1.b * (plane2.d*plane3.c - plane2.c*plane3.d) +
-                   plane1.c * (plane2.d*plane3.b - plane2.b*plane3.d)) / determinant);
-    effector.y = ((plane1.a * (plane2.d*plane3.c - plane2.c*plane3.d) -
-                   plane1.d * (plane2.a*plane3.c - plane2.c*plane3.a) +
-                   plane1.c * (plane2.a*plane3.d - plane2.d*plane3.a)) / determinant);
-    effector.z = ((plane1.a * (plane2.b*plane3.d - plane2.d*plane3.b) -
-                   plane1.b * (plane2.a*plane3.d - plane2.d*plane3.a) +
-                   plane1.d * (plane2.a*plane3.b - plane2.b*plane3.a)) / determinant);
-    
     return effector;
   }
 }
