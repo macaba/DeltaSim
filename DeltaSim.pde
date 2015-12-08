@@ -397,7 +397,7 @@ class DeltaConfig {
     if (Double.isNaN(sample)) {
       fill(0, 100, 100);
     } else {
-      println("Sample:" + sample + "  HueFactor:" + hueFactor + "Hue: " + ((sample * hueFactor) + 120));
+      //println("Sample:" + sample + "  HueFactor:" + hueFactor + "Hue: " + ((sample * hueFactor) + 120));
       fill((int)(sample * hueFactor) + 120, 100, 50);
     }
   }
