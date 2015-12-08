@@ -627,6 +627,10 @@ class DeltaConfig {
     return motorHeights;
   }
   
+  double sq(double value) {
+    return value * value;
+  }
+  
   // Xe = effector X location
   // Ye = effector Y location
   // Ze = effector Z location
@@ -654,10 +658,6 @@ class DeltaConfig {
   // (9): (A1^2+A2^2+1)*Ze^2 + (2*A1*(B1-Yb)+2*A2*(B2-Xb)-2*Zb)*Ze + ((B2-Xb)^2+(B1-Yb)^2)+Zb^2-RL^2) = 0
   // (10): A3*Ze^2 + B3*Ze + C3 = 0
   // (11): Ze = (-B3 +- sqrt(B3^2 - 4*A3*C3)) / (2*A3)
-  double sq(double value) {
-    return value * value;
-  }
-  
   Location CalculateEffectorLocation(Location motorHeights, Location effector) {
     if (effector == null) {
       effector = new Location();
@@ -695,57 +695,6 @@ class DeltaConfig {
       effector.y = y1;
       effector.z = z1;
     }
-    return effector;
-  }
-
-  
-  
-  
-  // X = J1*Y + K1*Z + L1
-  // X = J2*Y + K2*Z + L2
-  // X = J3*Y + K3*Z + L3
-  // Y * (J1 - J2) = Z * (K2 - K1) + (L2 - L1)
-  // Y = Z * (K2 - K1) / (J1 - J2) + (L2 - L1) / (J1 - J2)
-  // Y = Z * (K3 - K1) / (J1 - J3) + (L3 - L1) / (J1 - J3)
-  // Z * ((K2-K1)/(J1-J2) - (K3-K1)/(J1-J3)) + (L2-L1)/(J1-J2) - (L3-L1)/(J1-J3) = 0
-  // Z = (L3-L1)/(J1-J3) - (L2-L1)/(J1-J2) / ....
-  Location CalculateEffectorLocation2(Location motorHeights, Location effector) {
-    if (effector == null) {
-      effector = new Location();
-    }
-    
-    Vector plane1 = new Vector((2.0*this.bTowerLocation.x - 2.0*this.aTowerLocation.x),
-                               (2.0*this.bTowerLocation.y - 2.0*this.aTowerLocation.y),
-                               (2.0*motorHeights.y - 2.0*motorHeights.x),
-                               ((this.aTowerLocation.x*this.aTowerLocation.x - this.bTowerLocation.x*this.bTowerLocation.x) +
-                                (this.aTowerLocation.y*this.aTowerLocation.y - this.bTowerLocation.y*this.bTowerLocation.y) +
-                                (motorHeights.x*motorHeights.x - motorHeights.y*motorHeights.y)));
-    Vector plane2 = new Vector((2.0*this.cTowerLocation.x - 2.0*this.bTowerLocation.x),
-                               (2.0*this.cTowerLocation.y - 2.0*this.bTowerLocation.y),
-                               (2.0*motorHeights.z - 2.0*motorHeights.y),
-                               ((this.bTowerLocation.x*this.bTowerLocation.x - this.cTowerLocation.x*this.cTowerLocation.x) +
-                                (this.bTowerLocation.y*this.bTowerLocation.y - this.cTowerLocation.y*this.cTowerLocation.y) +
-                                (motorHeights.y*motorHeights.y - motorHeights.z*motorHeights.z)));
-    Vector plane3 = new Vector((2.0*this.aTowerLocation.x - 2.0*this.cTowerLocation.x),
-                               (2.0*this.aTowerLocation.y - 2.0*this.cTowerLocation.y),
-                               (2.0*motorHeights.x - 2.0*motorHeights.z),
-                               ((this.cTowerLocation.x*this.cTowerLocation.x - this.aTowerLocation.x*this.aTowerLocation.x) +
-                                (this.cTowerLocation.y*this.cTowerLocation.y - this.aTowerLocation.y*this.aTowerLocation.y) +
-                                (motorHeights.z*motorHeights.z - motorHeights.x*motorHeights.x)));
-    double determinant = (plane1.a * (plane2.b*plane3.c - plane2.c*plane3.b) -
-                          plane1.b * (plane2.a*plane3.c - plane2.c*plane3.a) + 
-                          plane1.c * (plane2.a*plane3.b - plane2.b*plane3.a));
-
-    effector.x = ((plane1.d * (plane2.b*plane3.c - plane2.c*plane3.b) -
-                   plane1.b * (plane2.d*plane3.c - plane2.c*plane3.d) +
-                   plane1.c * (plane2.d*plane3.b - plane2.b*plane3.d)) / determinant);
-    effector.y = ((plane1.a * (plane2.d*plane3.c - plane2.c*plane3.d) -
-                   plane1.d * (plane2.a*plane3.c - plane2.c*plane3.a) +
-                   plane1.c * (plane2.a*plane3.d - plane2.d*plane3.a)) / determinant);
-    effector.z = ((plane1.a * (plane2.b*plane3.d - plane2.d*plane3.b) -
-                   plane1.b * (plane2.a*plane3.d - plane2.d*plane3.a) +
-                   plane1.d * (plane2.a*plane3.b - plane2.b*plane3.a)) / determinant);
-    
     return effector;
   }
 }
