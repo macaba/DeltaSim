@@ -3,6 +3,8 @@ import g4p_controls.*; //<>//
 DeltaConfig theoretical;
 DeltaConfig actual;
 Location testEffectorLocation  = null;
+float zMultiplier;
+
 int selectedTower = 0;
 float xAngle = 0;
 float zAngle = 0;
@@ -19,14 +21,14 @@ void setup() {
   printLocation("Motors: ", theoretical.motorsLocation);
   printLocation("Effector: ", theoretical.effectorLocation);
   
-  theoretical.effectorLocation.x = 0;
-  theoretical.effectorLocation.y = 0;
-  theoretical.effectorLocation.z = 0;
+  actual.effectorLocation.x = theoretical.effectorLocation.x = 0;
+  actual.effectorLocation.y = theoretical.effectorLocation.y = 0;
+  actual.effectorLocation.z = theoretical.effectorLocation.z = 0;
+  zMultiplier = 50;
 
   theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
-  theoretical.CalculateEffectorLocation(theoretical.motorsLocation, theoretical.effectorLocation);
-  printLocation("Motors: ", theoretical.motorsLocation);
-  printLocation("Effector: ", theoretical.effectorLocation);
+  theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
+  actual.CalculateEffectorLocation(actual.motorsLocation, actual.effectorLocation);
   
   testPoints = new ArrayList<Location>();
   effectorErrors = new ArrayList<Location>();
@@ -42,10 +44,13 @@ void setup() {
   }
   
   calculateErrors();
-  println("whee");
 }
 
 void calculateErrors() {
+  double x = actual.effectorLocation.x;
+  double y = actual.effectorLocation.y;
+  double z = actual.effectorLocation.z;
+  
   for (int i = 0; i < testPoints.size(); i++) {
     Location l = testPoints.get(i);
     theoretical.effectorLocation.x = l.x;
@@ -68,10 +73,16 @@ void calculateErrors() {
     h.y = theoretical.effectorLocation.y;
     h.z = actual.calculateActualBedHeight(theoretical.effectorLocation.x, theoretical.effectorLocation.y) - actual.effectorLocation.z;
   }
+  
+  theoretical.effectorLocation.x = actual.effectorLocation.x = x;
+  theoretical.effectorLocation.y = actual.effectorLocation.y = y;
+  theoretical.effectorLocation.z = actual.effectorLocation.z = z;
+  theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
+  actual.CalculateMotorHeights(actual.effectorLocation, actual.motorsLocation);
 }
 
 void draw() {
-  background(100);
+  background(200);
   actual.drawDelta(heightErrors);
 }
 
@@ -103,7 +114,6 @@ void mouseDragged() {
 }
 
 void keyPressed() {
-  println("Key: " + key);
   if (key == '1') {
     selectedTower = 0;
   } else if (key == '2') {
@@ -139,7 +149,6 @@ void keyPressed() {
     actual.bedNormal.d -= 0.025;
     calculateErrors();
   } else if (key == CODED) {
-    println("coded key:");
     Location loc;
     switch (selectedTower) {
       case 0: 
@@ -248,6 +257,19 @@ class DeltaConfig {
   // Distance from center of delta circle to towers
   double deltaRadius;
   
+  double towerWidth;
+  double towerDepth;
+  
+  double motorWidth;
+  double motorHeight;
+  
+  // The horizontal distance between two rods connected to a single tower
+  double rodOffset;
+  // The horizontal offset of the effector from the centerpoint of rods
+  double effectorOffset;
+  // The horizontal offset of the towers from the rods
+  double motorOffset;
+  
   // Location of endstops
   double aTowerHeight;
   double bTowerHeight;
@@ -291,177 +313,233 @@ class DeltaConfig {
     this.motorsLocation = new Location(this.aTowerHeight, this.bTowerHeight, this.cTowerHeight);
     this.effectorLocation = new Location();
     
+    this.towerWidth = 20;
+    this.towerDepth = 40;
+    this.rodOffset = 25;
+    this.motorWidth = 2*this.rodOffset + 10;
+    this.motorHeight = 10;
+    this.effectorOffset = 25;
+    this.motorOffset = 10;
+    
     CalculateFromAngles();
     CalculateCenter();
     CalculateEffectorLocation(this.motorsLocation, this.effectorLocation);
   }
 
+  void drawBed() {
+    noFill();
+    ellipse(0, 0, (float)this.deltaRadius*2, (float)this.deltaRadius*2);
+  }
+  
+  void setColorMapProbeColor(double sample) {
+    if (Double.isNaN(sample)) {
+      fill(0,255,0);
+    } else if (sample > 0) {
+      if (sample > 0.02) {
+        if (sample > 0.04) {
+          if (sample > 0.08) {
+            if (sample > .16) {
+              fill(255, 0, 0);
+            } else {
+              fill(255, 64, 64);
+            }
+          } else {
+            fill(255, 128, 128);
+          }
+        } else {
+          fill(255, 192, 192);
+        }
+      } else {
+        fill(255, 255, 255);
+      }
+    } else {
+      if (sample < -0.02) {
+        if (sample < -0.04) {
+          if (sample < -0.08) {
+            if (sample < -.16) {
+              fill(0, 0, 255);
+            } else {
+              fill(64, 64, 255);
+            }
+          } else {
+            fill(128, 128, 255);
+          }
+        } else {
+          fill(192, 192, 255);
+        }
+      } else {
+        fill(255, 255, 255);
+      }
+    }
+  }
+  
+  double getMaxError(ArrayList<Location> heightErrors) {
+    double max = Double.MIN_VALUE;
+    for (Location l : heightErrors) {
+      if (l.z > max) {
+        max = l.z;
+      }
+    }
+    return max;
+  }
+  
+  double getMinError(ArrayList<Location> heightErrors) {
+    double min = Double.MAX_VALUE;
+    for (Location l : heightErrors) {
+      if (l.z < min) {
+        min = l.z;
+      }
+    }
+    return min;
+  }
+  
+  void setHSVProbeColor(double sample, double hueFactor) {
+    if (Double.isNaN(sample)) {
+      fill(0, 100, 100);
+    } else {
+      //println("Sample:" + sample + "  HueFactor:" + hueFactor + "Hue: " + ((sample * hueFactor) + 120));
+      fill((int)(sample * hueFactor) + 120, 100, 50);
+    }
+  }
+  
+  void drawHSVProbePoints(ArrayList<Location> heightErrors) {
+    colorMode(HSB, 360, 100, 100);
+    double maxE = getMaxError(heightErrors);
+    double minE = getMinError(heightErrors);
+    double hueFactor = 120 / Math.max(Math.max(Math.abs(maxE), Math.abs(minE)), 0.1);
+    for (Location l : heightErrors) {
+      pushMatrix();
+      translate(0, 0, (float)(l.z * zMultiplier));
+      setHSVProbeColor(l.z, hueFactor);
+      ellipse((float)l.x, (float)l.y, 5, 5);
+      popMatrix();
+    }
+    colorMode(RGB);
+    stroke(0);
+  }
+  
+  void drawColorMapProbePoints(ArrayList<Location> heightErrors) {
+    colorMode(RGB);
+    for (Location l : heightErrors) {
+      pushMatrix();
+      translate(0, 0, (float)(l.z * zMultiplier));
+      setColorMapProbeColor(l.z);
+      ellipse((float)l.x, (float)l.y, 5, 5);
+      popMatrix();
+    }
+    stroke(0);
+  }
+  
+  void drawTower(Location tower, double towerHeight, double towerAngle, boolean selected) {
+    pushMatrix();
+    if (selected) {
+      fill(256, 0, 0);
+    } else {
+      fill(100);
+    }
+    translate((float)tower.x, (float)tower.y, 0);
+    rotateZ((float)towerAngle);
+    translate((float)(this.towerWidth + this.effectorOffset + this.motorOffset), 0, ((float)towerHeight / 2));
+    box((float)towerDepth, (float)towerWidth, (float)towerHeight);
+    popMatrix();
+  }
+  
+  void drawMotor(Location towerLocation, double motorZ, double towerAngle) {
+    fill(120);
+    pushMatrix();
+    translate((float)towerLocation.x, (float)towerLocation.y, (float)motorZ);
+    rotateZ((float)towerAngle);
+    translate((float)(this.motorOffset/2 + this.effectorOffset), 0, 0); 
+    box((float)this.motorOffset, (float)this.motorWidth, (float)this.motorHeight);
+    translate((float)-(this.motorOffset/2), 0, 0);
+    pushMatrix();
+    line(-5, 0, 5, 0);
+    rotateY(PI/2);
+    line(-5, 0, 5, 0);
+    rotateZ(PI/2);
+    line(-5, 0, 5, 0);
+    popMatrix();
+    popMatrix();
+  }
+  
+  void drawEffector() {
+    pushMatrix();
+    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
+    line(-5, 0, 5, 0);
+    line(0, -5, 0, 5);
+    noFill();
+    ellipse(0, 0, (float)(this.effectorOffset * 2 + this.rodOffset), (float)(this.effectorOffset * 2 + this.rodOffset));
+    popMatrix();
+  }
+  
+  void drawTowerRods(Location tower, double motorZ, double towerAngle) {
+    double angle;
+    if (tower.x < this.effectorLocation.x) {
+      angle = Math.PI + Math.atan(((tower.y - this.effectorLocation.y) / (tower.x - this.effectorLocation.x)));
+    } else {
+      angle = Math.atan(((tower.y - this.effectorLocation.y) / (tower.x - this.effectorLocation.x)));
+    }
+
+    pushMatrix();
+    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
+    translate((float)(this.effectorOffset * Math.cos(towerAngle)), 
+              (float)(this.effectorOffset * Math.sin(towerAngle)), 0);
+    translate((float)(-this.rodOffset * Math.sin(towerAngle)), (float)(this.rodOffset * Math.cos(towerAngle)), 0);          
+    rotateZ((float)angle);
+    rotateY((float)-Math.asin((motorZ - this.effectorLocation.z) / this.rodLength));
+    line(0, 0, (float)this.rodLength, 0);
+    popMatrix();
+
+    pushMatrix();
+    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
+    translate((float)(this.effectorOffset * Math.cos(towerAngle)), 
+              (float)(this.effectorOffset * Math.sin(towerAngle)), 0);
+    translate((float)(this.rodOffset * Math.sin(towerAngle)), -(float)(this.rodOffset * Math.cos(towerAngle)), 0);          
+    rotateZ((float)angle);
+    rotateY((float)-Math.asin((motorZ - this.effectorLocation.z) / this.rodLength));
+    //translate(0, (float)-this.rodOffset, 0);
+    line(0, 0, (float)this.rodLength, 0);
+    popMatrix();
+  }
+  
+  void drawTable() {
+    fill(0);
+    textSize(18);
+    text(String.format("Tower A: [%.5f, %.5f]", this.aTowerLocation.x, this.aTowerLocation.y), 25, 50);
+    text(String.format("Tower A Angle: %.5f", degrees((float)this.aTowerAngle)), 25, 100);
+    text(String.format("Tower B: [%.5f, %.5f]", this.bTowerLocation.x, this.bTowerLocation.y), 25, 150);
+    text(String.format("Tower B Angle: %.5f", degrees((float)this.bTowerAngle)), 25, 200);
+    text(String.format("Tower C: [%.5f, %.5f]", this.cTowerLocation.x, this.cTowerLocation.y), 25, 250);
+    text(String.format("Tower C Angle: %.5f", degrees((float)this.cTowerAngle)), 25, 300);
+    text(String.format("Delta Radius: %.5f", this.deltaRadius), 25, 350);
+    text(String.format("Rod Length: %.5f", this.rodLength), 25, 400);
+    text(String.format("Effector: [%.5f, %.5f, %.5f]", this.effectorLocation.x, this.effectorLocation.y, this.effectorLocation.z), 25, 450);
+    text(String.format("Bed Normal: [%.5f, %.5f, %.5f, %.5f]", this.bedNormal.a, this.bedNormal.b, this.bedNormal.c, this.bedNormal.d), 25, 500);
+  }
+
   void drawDelta(ArrayList<Location> heightErrors) {
     pushMatrix();
+    
     translate(width/2, 2*height/3, -50);
     rotateX(xAngle);
     rotateZ(zAngle);
     
-    // draw bed
-    //fill(255);
-    noFill();
-    ellipse(0, 0, (float)this.deltaRadius*2, (float)this.deltaRadius*2);
-    
-    //noStroke();
-    colorMode(HSB, 360, 100, 100);
-    
-    float[] heightErrorsFloat = new float[5000];
-    int i = 0;
-    for (Location l : heightErrors) {
-      heightErrorsFloat[i++] = (float)l.z;
-    }
-    float maxDeviation = max(abs(min(heightErrorsFloat)), abs(max(heightErrorsFloat))); 
-    float maxDeviationCoerced = max(maxDeviation, 0.1);
-    float hueFactor = 120/maxDeviationCoerced;
-       
-    for (Location l : heightErrors) {
-      //println("l.z:"+l.z);
-      if (Double.isNaN(l.z)) {
-        fill(0,100,100);
-      } else {
-        fill((int)((l.z * hueFactor)+120), 100, 50);
-      }
-    
-      pushMatrix(); 
-      translate(0,0,(float)l.z*50);
-      ellipse((float)l.x, (float)l.y, 5, 5);
-      popMatrix();      
-    }
-    stroke(0);
-    
-    colorMode(RGB);
-    
-    // draw tower A
-    pushMatrix();
-    if (selectedTower == 0) {
-      fill(256, 0, 0);
-    } else {
-      fill(256);
-    }
-    translate((float)this.aTowerLocation.x, (float)this.aTowerLocation.y, 0);
-    rotateY(-PI/2);
-    rect(0, -2, (float)this.aTowerHeight, 2);
-    popMatrix();
-    
-    // draw motor A
-    pushMatrix();
-    translate((float)this.aTowerLocation.x, (float)this.aTowerLocation.y, (float)this.motorsLocation.x);
-    line(-5, 0, 5, 0);
-    rotateY(PI/2);
-    line(-5, 0, 5, 0);
-    rotateZ(PI/2);
-    line(-5, 0, 5, 0);
-    popMatrix();
-
-    // draw tower B
-    pushMatrix();
-    if (selectedTower == 1) {
-      fill(256, 0, 0);
-    } else {
-      fill(256);
-    }
-    translate((float)this.bTowerLocation.x, (float)this.bTowerLocation.y, 0);
-    rotateY(-PI/2);
-    rect(0, -2, (float)this.bTowerHeight, 2);
-    popMatrix();
-
-    // draw motor B
-    pushMatrix();
-    translate((float)this.bTowerLocation.x, (float)this.bTowerLocation.y, (float)this.motorsLocation.y);
-    line(-5, 0, 5, 0);
-    rotateY(PI/2);
-    line(-5, 0, 5, 0);
-    rotateZ(PI/2);
-    line(-5, 0, 5, 0);
-    popMatrix();
-
-    // draw tower C
-    pushMatrix();
-    if (selectedTower == 2) {
-      fill(256, 0, 0);
-    } else {
-      fill(256);
-    }
-    translate((float)this.cTowerLocation.x, (float)this.cTowerLocation.y, 0);
-    rotateY(-PI/2);
-    rect(0, -2, (float)this.cTowerHeight, 2);
-    popMatrix();
-
-    // draw motor C
-    pushMatrix();
-    translate((float)this.cTowerLocation.x, (float)this.cTowerLocation.y, (float)this.motorsLocation.z);
-    line(-5, 0, 5, 0);
-    rotateY(PI/2);
-    line(-5, 0, 5, 0);
-    rotateZ(PI/2);
-    line(-5, 0, 5, 0);
-    popMatrix();
-
-    // draw effector
-    pushMatrix();
-    fill(256);
-    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
-    line(-5, 0, 5, 0);
-    line(0, -5, 0, 5);
-    ellipse(0, 0, 10, 10);
-    popMatrix();
-    
-    // draw rod A
-    pushMatrix();
-    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
-    if (this.aTowerLocation.x < this.effectorLocation.x) {
-      rotateZ(PI+atan((float)((this.aTowerLocation.y - this.effectorLocation.y) / (this.aTowerLocation.x - this.effectorLocation.x))));
-    } else {
-      rotateZ(atan((float)((this.aTowerLocation.y - this.effectorLocation.y) / (this.aTowerLocation.x - this.effectorLocation.x))));
-    }
-    rotateY(-asin((float)((this.motorsLocation.x - this.effectorLocation.z) / this.rodLength)));
-    line(0, 0, (float)this.rodLength, 0);
-    popMatrix();
-    
-    // draw rod B
-    pushMatrix();
-    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
-    if (this.bTowerLocation.x < this.effectorLocation.x) {
-      rotateZ(PI+atan((float)((this.bTowerLocation.y - this.effectorLocation.y) / (this.bTowerLocation.x - this.effectorLocation.x))));
-    } else {
-      rotateZ(atan((float)((this.bTowerLocation.y - this.effectorLocation.y) / (this.bTowerLocation.x - this.effectorLocation.x))));
-    }
-    rotateY(-asin((float)((this.motorsLocation.y - this.effectorLocation.z) / this.rodLength)));
-    line(0, 0, (float)this.rodLength, 0);
-    popMatrix();
-    
-    // draw rod C
-    pushMatrix();
-    translate((float)this.effectorLocation.x, (float)this.effectorLocation.y, (float)this.effectorLocation.z);
-    if (this.cTowerLocation.x < this.effectorLocation.x) {
-      rotateZ(PI+atan((float)((this.cTowerLocation.y - this.effectorLocation.y) / (this.cTowerLocation.x - this.effectorLocation.x))));
-    } else {
-      rotateZ(atan((float)((this.cTowerLocation.y - this.effectorLocation.y) / (this.cTowerLocation.x - this.effectorLocation.x))));
-    }
-    rotateY(-asin((float)((this.motorsLocation.z - this.effectorLocation.z) / this.rodLength)));
-    line(0, 0, (float)this.rodLength, 0);
-    popMatrix();
+    drawBed();
+    drawHSVProbePoints(heightErrors);
+    drawTower(this.aTowerLocation, this.aTowerHeight, this.aTowerAngle, (selectedTower == 0));
+    drawTower(this.bTowerLocation, this.bTowerHeight, this.bTowerAngle, (selectedTower == 1));
+    drawTower(this.cTowerLocation, this.cTowerHeight, this.cTowerAngle, (selectedTower == 2));
+    drawMotor(this.aTowerLocation, this.motorsLocation.x, this.aTowerAngle);
+    drawMotor(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
+    drawMotor(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
+    drawEffector();
+    drawTowerRods(this.aTowerLocation, this.motorsLocation.x, this.aTowerAngle);
+    drawTowerRods(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
+    drawTowerRods(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
 
     popMatrix();
 
-    fill(0);
-    textSize(18);
-    text(String.format("Tower A: [%.5f, %.5f]", this.aTowerLocation.x, this.aTowerLocation.y), 25, 100);
-    text(String.format("Tower A Angle: %.5f", degrees((float)this.aTowerAngle)), 25, 150);
-    text(String.format("Tower B: [%.5f, %.5f]", this.bTowerLocation.x, this.bTowerLocation.y), 25, 200);
-    text(String.format("Tower B Angle: %.5f", degrees((float)this.bTowerAngle)), 25, 250);
-    text(String.format("Tower C: [%.5f, %.5f]", this.cTowerLocation.x, this.cTowerLocation.y), 25, 300);
-    text(String.format("Tower C Angle: %.5f", degrees((float)this.cTowerAngle)), 25, 350);
-    text(String.format("Delta Radius: %.5f", this.deltaRadius), 25, 400);
-    text(String.format("Rod Length: %.5f", this.rodLength), 25, 450);
-    text(String.format("Effector: [%.5f, %.5f, %.5f]", this.effectorLocation.x, this.effectorLocation.y, this.effectorLocation.z), 25, 500);
-    text(String.format("Bed Normal: [%.5f, %.5f, %.5f, %.5f]", this.bedNormal.a, this.bedNormal.b, this.bedNormal.c, this.bedNormal.d), 25, 550);
-    text(String.format("Max Deviation: %.3f (Red: %.3f, Blue: %.3f)", maxDeviation, -maxDeviationCoerced, maxDeviationCoerced), 25, 590);
+    drawTable();
   }
 
   void CalculateFromAngles() {
