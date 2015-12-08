@@ -58,9 +58,9 @@ void calculateErrors() {
     theoretical.effectorLocation.z = 0;
     
     theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
-    actual.motorsLocation.x = theoretical.motorsLocation.x;
-    actual.motorsLocation.y = theoretical.motorsLocation.y;
-    actual.motorsLocation.z = theoretical.motorsLocation.z;
+    actual.motorsLocation.x = theoretical.motorsLocation.x + actual.aEndstopOffset;
+    actual.motorsLocation.y = theoretical.motorsLocation.y + actual.bEndstopOffset;
+    actual.motorsLocation.z = theoretical.motorsLocation.z + actual.cEndstopOffset;
     actual.CalculateEffectorLocation(actual.motorsLocation, actual.effectorLocation);
 
     Location e = effectorErrors.get(i);
@@ -89,9 +89,9 @@ void draw() {
 void mouseWheel(MouseEvent e) {
   theoretical.effectorLocation.z += e.getCount();
   theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
-  actual.motorsLocation.x = theoretical.motorsLocation.x;
-  actual.motorsLocation.y = theoretical.motorsLocation.y;
-  actual.motorsLocation.z = theoretical.motorsLocation.z;
+  actual.motorsLocation.x = theoretical.motorsLocation.x + actual.aEndstopOffset;
+  actual.motorsLocation.y = theoretical.motorsLocation.y + actual.bEndstopOffset;
+  actual.motorsLocation.z = theoretical.motorsLocation.z + actual.cEndstopOffset;
   actual.CalculateEffectorLocation(actual.motorsLocation, actual.effectorLocation);
 }
 
@@ -106,9 +106,9 @@ void mouseDragged() {
     theoretical.effectorLocation.y += (mouseY - pmouseY);
     theoretical.CalculateMotorHeights(theoretical.effectorLocation, theoretical.motorsLocation);
     
-    actual.motorsLocation.x = theoretical.motorsLocation.x;
-    actual.motorsLocation.y = theoretical.motorsLocation.y;
-    actual.motorsLocation.z = theoretical.motorsLocation.z;
+    actual.motorsLocation.x = theoretical.motorsLocation.x + actual.aEndstopOffset;
+    actual.motorsLocation.y = theoretical.motorsLocation.y + actual.bEndstopOffset;
+    actual.motorsLocation.z = theoretical.motorsLocation.z + actual.cEndstopOffset;
     actual.CalculateEffectorLocation(actual.motorsLocation, actual.effectorLocation);
   }
 }
@@ -142,6 +142,36 @@ void keyPressed() {
     yBedAngle += radians(0.1);
     actual.CalculateBedNormal();
     calculateErrors();
+  } else if (key == 's') {
+    switch (selectedTower) {
+      case 0:
+        actual.aEndstopOffset += 0.01;
+        calculateErrors();
+        break;
+      case 1:
+        actual.bEndstopOffset += 0.01;
+        calculateErrors();
+        break;
+      case 2:
+        actual.cEndstopOffset += 0.01;
+        calculateErrors();
+        break;
+    }
+  } else if (key == 'x') {
+    switch (selectedTower) {
+      case 0:
+        actual.aEndstopOffset -= 0.01;
+        calculateErrors();
+        break;
+      case 1:
+        actual.bEndstopOffset -= 0.01;
+        calculateErrors();
+        break;
+      case 2:
+        actual.cEndstopOffset -= 0.01;
+        calculateErrors();
+        break;
+    }
   } else if (key == 'a') {
     actual.bedNormal.d += 0.025;
     calculateErrors();
@@ -275,6 +305,10 @@ class DeltaConfig {
   double bTowerHeight;
   double cTowerHeight;
   
+  double aEndstopOffset;
+  double bEndstopOffset;
+  double cEndstopOffset;
+  
   // Angles
   double aTowerAngle;
   double bTowerAngle;
@@ -300,6 +334,9 @@ class DeltaConfig {
     this.aTowerHeight = 400;
     this.bTowerHeight = 400;
     this.cTowerHeight = 400;
+    this.aEndstopOffset = 0;
+    this.bEndstopOffset = 0;
+    this.cEndstopOffset = 0;
     this.aTowerAngle = 0;
     this.bTowerAngle = radians(120);
     this.cTowerAngle = radians(240);
@@ -311,19 +348,19 @@ class DeltaConfig {
     this.centerLocation = new Location();
     
     this.motorsLocation = new Location(this.aTowerHeight, this.bTowerHeight, this.cTowerHeight);
-    this.effectorLocation = new Location();
+    this.effectorLocation = new Location(0, 0, 0);
     
-    this.towerWidth = 20;
-    this.towerDepth = 40;
-    this.rodOffset = 25;
-    this.motorWidth = 2*this.rodOffset + 10;
-    this.motorHeight = 10;
-    this.effectorOffset = 25;
-    this.motorOffset = 10;
+    this.towerWidth = 20;                     // width of tower
+    this.towerDepth = 40;                     // depth of tower
+    this.rodOffset = 25;                      // width between rods
+    this.motorWidth = 2*this.rodOffset + 10;  // width of motor plate: 10mm wider than width between rods
+    this.motorHeight = 10;                    // height of motor plate
+    this.motorOffset = 10;                    // depth of motor plate; offset of towers from front of plate
+    this.effectorOffset = 25;                 // distance from effector center to rods
     
     CalculateFromAngles();
     CalculateCenter();
-    CalculateEffectorLocation(this.motorsLocation, this.effectorLocation);
+    CalculateMotorHeights(this.effectorLocation, this.motorsLocation);
   }
 
   void drawBed() {
