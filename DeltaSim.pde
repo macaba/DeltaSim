@@ -5,6 +5,7 @@ DeltaConfig actual;
 Location testEffectorLocation  = null;
 float zMultiplier;
 GCode gcode;
+int frameCount = 0;
 
 int selectedTower = 0;
 float xAngle = 0;
@@ -51,8 +52,8 @@ void setup() {
 
   calculateErrors();
 
-  gcode = new GCode(theoretical);
-  gcode.readFile("/Users/dan/Downloads/unDP.gcode");
+  gcode = new GCode(actual);
+  gcode.readFile("/Users/dan/Downloads/lowpolyskulllisa.gcode");
 }
 
 void calculateErrors() {
@@ -330,6 +331,7 @@ class GCode {
   }
 
   void drawGCode() {
+    int currentFrame = 0;
     Location lastPoint = new Location();
     for (ExtrudePath e : extrudePaths) {
       if (e.isExtruding) {
@@ -339,22 +341,44 @@ class GCode {
         for (Location p : e.points) {
           vertex((float)p.x, (float)p.y, (float)p.z);
           lastPoint = p;
+          currentFrame++;
+          if (currentFrame > frameCount) {
+            break;
+          }
         }
         endShape();
       } else if (e.isRetracting) {
-        fill(0);
+        fill(100);
         beginShape();
         vertex((float)lastPoint.x, (float)lastPoint.y, (float)lastPoint.z);
         for (Location p : e.points) {
           vertex((float)p.x, (float)p.y, (float)p.z);
           lastPoint = p;
+          currentFrame++;
+          if (currentFrame > frameCount) {
+            break;
+          }
         }
         endShape();
       } else {
         for (Location p : e.points) {
           lastPoint = p;
+          currentFrame++;
+          if (currentFrame > frameCount) {
+            break;
+          }
         }
       }
+      if (currentFrame > frameCount) {
+        break;
+      }
+    }
+    deltaConfig.effectorLocation.x = lastPoint.x;
+    deltaConfig.effectorLocation.y = lastPoint.y;
+    deltaConfig.effectorLocation.z = lastPoint.z;
+    deltaConfig.CalculateMotorHeights(deltaConfig.effectorLocation, deltaConfig.motorsLocation);
+    if (currentFrame > frameCount) {
+      frameCount++;
     }
   }
 
@@ -747,6 +771,7 @@ class DeltaConfig {
     drawTower(this.aTowerLocation, this.aTowerHeight, this.aTowerAngle, (selectedTower == 0));
     drawTower(this.bTowerLocation, this.bTowerHeight, this.bTowerAngle, (selectedTower == 1));
     drawTower(this.cTowerLocation, this.cTowerHeight, this.cTowerAngle, (selectedTower == 2));
+    gcode.drawGCode();
     drawMotor(this.aTowerLocation, this.motorsLocation.x, this.aTowerAngle);
     drawMotor(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
     drawMotor(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
@@ -755,7 +780,6 @@ class DeltaConfig {
     drawTowerRods(this.bTowerLocation, this.motorsLocation.y, this.bTowerAngle);
     drawTowerRods(this.cTowerLocation, this.motorsLocation.z, this.cTowerAngle);
     
-    gcode.drawGCode();
 
     popMatrix();
 
