@@ -6,6 +6,7 @@ Location testEffectorLocation  = null;
 float zMultiplier;
 GCode gcode;
 int frameCount = 0;
+double layerHeight = 0;
 
 int selectedTower = 0;
 float xAngle = 0;
@@ -331,13 +332,18 @@ class GCode {
   }
 
   void drawGCode() {
+    colorMode(RGB, 256);
     int currentFrame = 0;
     Location lastPoint = new Location();
     for (ExtrudePath e : extrudePaths) {
       if (e.isExtruding) {
-        fill(256);
         beginShape();
         vertex((float)lastPoint.x, (float)lastPoint.y, (float)lastPoint.z);
+        if (layerHeight == lastPoint.z) {
+          stroke(250, 200, 200);
+        } else {
+          stroke(50, 50, 50, 0.75);
+        }
         for (Location p : e.points) {
           vertex((float)p.x, (float)p.y, (float)p.z);
           lastPoint = p;
@@ -348,7 +354,11 @@ class GCode {
         }
         endShape();
       } else if (e.isRetracting) {
-        fill(100);
+        if (layerHeight == lastPoint.z) {
+          stroke(200, 250, 200);
+        } else {
+          stroke(50, 50, 50, 0.75);
+        }
         beginShape();
         vertex((float)lastPoint.x, (float)lastPoint.y, (float)lastPoint.z);
         for (Location p : e.points) {
@@ -373,6 +383,7 @@ class GCode {
         break;
       }
     }
+    layerHeight = lastPoint.z;
     deltaConfig.effectorLocation.x = lastPoint.x;
     deltaConfig.effectorLocation.y = lastPoint.y;
     deltaConfig.effectorLocation.z = lastPoint.z;
@@ -380,6 +391,8 @@ class GCode {
     if (currentFrame > frameCount) {
       frameCount++;
     }
+    fill(256);
+    stroke(0);
   }
 
   void readFile(String filename) {
