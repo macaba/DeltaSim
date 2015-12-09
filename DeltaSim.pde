@@ -340,9 +340,13 @@ class GCode {
         beginShape();
         vertex((float)lastPoint.x, (float)lastPoint.y, (float)lastPoint.z);
         if (layerHeight == lastPoint.z) {
-          stroke(250, 200, 200);
+          stroke(200);
+          //fill(250, 200, 200);
+          //stroke(250, 200, 200);
         } else {
-          stroke(50, 50, 50, 0.75);
+          //fill(50, 50, 50, 0.75);
+          stroke((int)(((layerHeight - lastPoint.z) / layerHeight) * 100) + 50);
+          //stroke(50, 50, 50, 0.75);
         }
         for (Location p : e.points) {
           vertex((float)p.x, (float)p.y, (float)p.z);
@@ -355,9 +359,12 @@ class GCode {
         endShape();
       } else if (e.isRetracting) {
         if (layerHeight == lastPoint.z) {
-          stroke(200, 250, 200);
+          //fill(0, 250, 0);
+          stroke(0, 200, 0);
         } else {
-          stroke(50, 50, 50, 0.75);
+          //fill(0, 250, 0, 0.15);
+          stroke(0, (int)(((layerHeight - lastPoint.z) / layerHeight) * 100) + 50, 0);
+          //stroke(0, 250, 0, 0.15);
         }
         beginShape();
         vertex((float)lastPoint.x, (float)lastPoint.y, (float)lastPoint.z);
